@@ -1,0 +1,41 @@
+item_id,item_name,description,owner
+01-01-00-01,sword,basic sword,auction_house
+01-01-01-01,basic sword,bleeh,auction_house
+02-02-00-02,staff,wooden staff,auction_house
+02-02-01-02,wooden staff,magic staff,auction_house
+03-03-00-03,dagger,steel dagger,auction_house
+03-03-01-03,steel dagger,sharp and deadly,auction_house
+04-04-00-04,bow,elven bow,auction_house
+04-04-01-04,elven bow,crafted by elves,auction_house
+05-05-00-05,shield,iron shield,auction_house
+05-05-01-05,iron shield,protective gear,auction_house
+06-06-00-06,armor,chainmail armor,auction_house
+06-06-01-06,chainmail armor,durable and sturdy,auction_house
+07-07-00-07,wand,crystal wand,auction_house
+07-07-01-07,crystal wand,enchanted with spells,auction_house
+08-08-00-08,ring,ruby ring,auction_house
+08-08-01-08,ruby ring,brings luck and prosperity,auction_house
+09-09-00-09,amulet,silver amulet,auction_house
+09-09-01-09,silver amulet,ward against evil,auction_house
+10-10-00-10,scroll,ancient scroll,auction_house
+10-10-01-10,ancient scroll,holds forgotten knowledge,auction_house
+11-11-00-11,axe,warrior's axe,auction_house
+11-11-01-11,warrior's axe,imbued with strength,auction_house
+12-12-00-12,orb,crystal orb,auction_house
+12-12-01-12,crystal orb,foretells the future,auction_house
+13-13-00-13,cape,shadow cloak,auction_house
+13-13-01-13,shadow cloak,grants invisibility,auction_house
+14-14-00-14,hammer,dwarven hammer,auction_house
+14-14-01-14,dwarven hammer,forged in the heart of a mountain,auction_house
+15-15-00-15,flute,enchanted flute,auction_house
+15-15-01-15,enchanted flute,controls nature's melodies,auction_house
+16-16-00-16,gauntlets,dragonhide gauntlets,auction_house
+16-16-01-16,dragonhide gauntlets,impenetrable defense,auction_house
+17-17-00-17,potion,elixir of vitality,auction_house
+17-17-01-17,elixir of vitality,restores health and vigor,auction_house
+18-18-00-18,quiver,magic quiver,auction_house
+18-18-01-18,magic quiver,never runs out of arrows,auction_house
+19-19-00-19,tiara,royal tiara,auction_house
+19-19-01-19,royal tiara,grants charisma and authority,auction_house
+20-20-00-20,boots,swift boots,auction_house
+20-20-01-20,swift boots,increases speed and agility,auction_house
