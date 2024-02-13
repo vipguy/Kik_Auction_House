@@ -5,6 +5,7 @@ import json
 import time
 import logging
 from termcolor import colored
+import Id_config
 
 from kik_unofficial.datatypes.xmpp.chatting import IncomingChatMessage, IncomingGroupChatMessage
 from kik_unofficial.datatypes.xmpp.sign_up import RegisterResponse
@@ -66,20 +67,6 @@ class EchoBot(KikClientCallback):
         #HEARTBEAT KEEP ALIVE PRIMAL WAY
         self.start_heartbeat()
 
-    def query_user(self, jid):
-        print('query_user')
-        if jid in self.users:
-            return self.users[jid]
-        else:
-            self.client.request_info_of_users(jid)
-            while jid not in self.users:
-                pass  # You might want to add a timeout or a better waiting mechanism here
-            return self.users[jid]
-
-    def get_group_jid_number(jid):
-        print('get_group_jid_number')
-        return jid.split('@')[0][0:-2]
-
     def start_heartbeat(self):
         print('start_heartbeat')
         heartbeat_thread = threading.Thread(target=self.send_heartbeat)
@@ -130,17 +117,54 @@ class EchoBot(KikClientCallback):
     
     def item_registry(self, user_jid, command_parts):
         print(f'item_registry command: {command_parts}')
-        user_title = database.get_user_data(user_jid)['title']
+        user_title = database.get_user_data(jid=user_jid)['title']
         if len(command_parts) < 2:
             with open("data_storage/id_sys1.txt","r") as f:
                 example = f.read()
             return example
-        if 'all' in command_parts and user_title == 'owner':
+        elif len(command_parts) == 2:
+            id_tag = command_parts[1]
+            split_result = Id_config.split_id(id_tag)
+            gen_cat, spec_cat, quality, status, quantity = split_result if split_result else (False, False, False, False, False)
+            if gen_cat == False:
+                return "Invalid id tag. Please use the correct format."
+            else:
+                msg = Id_config.define_id(gen_cat, spec_cat, quality, status, quantity)
+                if msg == 'id tag is correct':
+                    items = database.get_registry_data(id_tag)
+                return msg 
+                
+        elif 'all' in command_parts and user_title == 'owner':
             items = database.get_registry_data('all')
             if items:
                 return f"Items: {items}"
             else:
                 return "No items in the registry."
+        elif 'add' in command_parts and user_title == 'owner':
+            if database.check_item(id_tag):
+                return f"Item with id tag {id_tag} already exists in the registry."
+            else:
+                database.add_item_to_registry(id_tag)
+                return f"Item with id tag {id_tag} added to the registry."
+        elif 'remove' in command_parts and user_title == 'owner':
+            if database.check_item(id_tag):
+                database.remove_item_from_registry(id_tag)
+                return f"Item with id tag {id_tag} removed from the registry."
+            else:
+                return f"Item with id tag {id_tag} does not exist in the registry."
+        elif 'check' in command_parts:
+            if database.check_item(id_tag):
+                return f"Item with id tag {id_tag} exists in the registry."
+            else:
+                return f"Item with id tag {id_tag} does not exist in the registry."
+        elif 'all' in command_parts and user_title == 'owner':
+            items = database.get_registry_data('all')
+            if items:
+                return f"Items: {items}"
+            else:
+                return "No items in the registry."
+        else:
+            return "You do not have permission to perform this action."
             
     def items_in_auction(self, user_jid, command_parts):
         print(f'items_in_auction command: {command_parts}')
@@ -163,19 +187,51 @@ class EchoBot(KikClientCallback):
     def show_dashboard(self, user_jid):
         pass
 
-    def extract_username(jid):
-        username = jid.split('@')[0][:-4]
-        return username
+    def link_to_user(self, user_jid, group_jid, tag='check_user_id'):
+        if tag == 'check_user_id':
+            if not database.check_user_id(user_jid):
+                self.client.send_chat_message(group_jid, 'You must link this chat to your inventory in order use this fuction. message me in dm and say \'link\'.')
+                return False
+            else:
+                return True
+        elif tag == 'return_username':
+            return database.get_user_data(user_jid)['username']
+
+
         
     # This method is called when the bot receives a direct message (chat message)
     def on_chat_message_received(self, chat_message: chatting.IncomingChatMessage):
         print("Chat message received!")
-        database.add_user_if_not_exists(chat_message.from_jid)
+        separator = colored("--------------------------------------------------------", "cyan")
+        group_message_header = colored("[+ DIRECT MESSAGE +]", "cyan")
+
+        print(separator)
+        print(group_message_header)
+        print(colored(f"From AJID: {chat_message.from_jid}", "yellow"))
+        print(colored(f"Says: {chat_message.body}", "yellow"))
+        print(separator)
+
+        user_jid = chat_message.from_jid
+
+        database.add_user_if_not_exists(chat_message.from_jid, table='set_user_data')
         self.client.send_chat_message(chat_message.from_jid, f'You said "{chat_message.body}"!')
+
         if chat_message.body.lower() == "friend":
             self.client.add_friend(chat_message.from_jid)
-            self.client.send_chat_message(chat_message.from_jid, "You can now add me to groups! <3")
+            self.client.send_chat_message(chat_message.from_jid, "You are now my friend! <3")
 
+        if chat_message.body.lower() == "link":
+            self.client.add_friend(chat_message.from_jid)
+            database.add_user_if_not_exists(user_jid, table='set_user_data')
+            user_data = database.get_user_data(chat_message.from_jid, table='set_user_data')
+            unique_id = user_data['unique_id'] if user_data else None
+            if unique_id:
+                self.client.send_chat_message(chat_message.from_jid, f'your unique_id links you to your inventory in the group chat of your choice.\n in order for this to work, copy your unique_id then go to an unlinked chat has the auction house and say !connect [unique_id]\n for example: !connect 98wgf98ey4g9e .')
+                self.client.send_chat_message(chat_message.from_jid, f'{unique_id}')
+            else:
+                self.client.send_chat_message(chat_message.from_jid, "sorry, you do not have a unique_id. please contact the auction house owner for assistance.")
+    
+    
 
     # This method is called when the bot receives a chat message in a group
     def on_group_message_received(self, chat_message: chatting.IncomingGroupChatMessage):
@@ -199,14 +255,16 @@ class EchoBot(KikClientCallback):
         command = command_parts[0].lower() if command_parts else ""
         # Convert message to lowercase for case-insensitive comparisons
         message = str(chat_message.body.lower())
-        database.add_user_if_not_exists(user_jid)
+        database.add_user_if_not_exists(user_jid, table='new_user_data', groupjids=group_jid)
  
 
         if command == "!registry":
             try:
-                registry_message = self.item_registry(user_jid, command_parts)
-                self.client.send_chat_message(group_jid, registry_message)
+                if self.link_to_user(user_jid, group_jid):
+                    registry_message = self.item_registry(user_jid, command_parts)
+                    self.client.send_chat_message(group_jid, registry_message)
             except Exception as e:
+                
                 print(f"Error: {e}. Positional arguments provided-- group id: {group_jid}, user_id: {user_jid}, command parts: {command_parts}")
 
         if command == "!in_auction":
@@ -215,17 +273,13 @@ class EchoBot(KikClientCallback):
 
         if command == "!bid":
             bid_message = self.bid_on_item(user_jid, command_parts)
-            if bid_message:
+            if bid_message and self.link_to_user(user_jid, group_jid):
                 self.client.send_chat_message(group_jid, bid_message)
-            else:
-                self.client.send_chat_message(group_jid, "not ready yet!")
 
         if command == "!inventory":
             Inventory_message = self.show_Inventory(user_jid)
-            if Inventory_message:
+            if Inventory_message and self.link_to_user(user_jid, group_jid):
                 self.client.send_chat_message(group_jid, Inventory_message)
-            else:    
-                self.client.send_chat_message(group_jid, "not ready yet!")
 
         if command == "!dashboard":
             try:
@@ -234,11 +288,8 @@ class EchoBot(KikClientCallback):
                 print(colored(f"Data: {data}, data type = {type(data)}", "yellow"))
                 print(separator)
                 dashboard_message = self.show_dashboard(user_jid)
-                if dashboard_message:
+                if dashboard_message and self.link_to_user(user_jid, group_jid):
                     self.client.send_chat_message(group_jid, dashboard_message)
-                else:
-                    self.client.send_chat_message(group_jid, "not ready yet!")
-
             except Exception as e:
                 print(f"Error: {e}")
 
@@ -255,8 +306,13 @@ class EchoBot(KikClientCallback):
                 self.client.send_chat_message(chat_message.group_jid, f.read())
             return    
         
-        if command == "!talk":
-            self.client.send_chat_message(chat_message.group_jid, f'You said "{chat_message.body}"!')
+        if command == "!connect":
+            unique_id = command_parts[1]
+            if unique_id:
+                msg = database.link_group_to_user(user_jid, unique_id)
+                self.client.send_chat_message(chat_message.group_jid, msg)
+            else:
+                self.client.send_chat_message(chat_message.group_jid, "You must provide a unique_id to link your chat to your inventory. head")
         
     def on_sign_up_ended(self, response: RegisterResponse):
         print("Sign up ended!")
