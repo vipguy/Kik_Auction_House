@@ -117,55 +117,75 @@ class EchoBot(KikClientCallback):
     
     def item_registry(self, user_jid, command_parts):
         print(f'item_registry command: {command_parts}')
-        user_title = database.get_user_data(jid=user_jid)['title']
+        user_title = database.get_user_data(jid=user_jid, table='set_user_data')['title']
         if len(command_parts) < 2:
             with open("data_storage/id_sys1.txt","r") as f:
                 example = f.read()
             return example
         elif len(command_parts) == 2:
-            id_tag = command_parts[1]
-            split_result = Id_config.split_id(id_tag)
-            gen_cat, spec_cat, quality, status, quantity = split_result if split_result else (False, False, False, False, False)
-            if gen_cat == False:
-                return "Invalid id tag. Please use the correct format."
+            if command_parts[1].startswith('#'):
+                id_tag = command_parts[1]
+                split_result = Id_config.split_id(id_tag)
+                gen_cat, spec_cat, quality, status = split_result if split_result else ( False, False, False, False)
+                if gen_cat == False:
+                    return "Invalid id tag. Please use the correct format."
+                else:
+                    qualit = False
+                    statu = False
+                    msg = Id_config.define_id(gen_cat, spec_cat, quality, status)
+                    print(colored(f"context: {msg}", "yellow"))
+                    if not ' end' in msg:
+                        print('not end in msg')
+                        return msg
+                    if 'quality_All' in msg:
+                        print('quality_All in msg')
+                        quality = True
+                    if 'status_All' in msg:
+                        print('status_All in msg')
+                        status = True
+                    items = database.get_registry_data(id_tag, qualit, statu)
+                    return items                 
+            elif 'all' in command_parts:
+                if user_title == 'owner':
+                    items = database.get_all_items(table_name='item_registry')
+                    if items:
+                        return f"Items:\n {items}"
+                    else:
+                        return "No items in the registry."
+                else:
+                    return "You do not have permission to use this command."
+            elif 'remove' in command_parts:
+                if user_title == 'owner':
+                    if database.check_item(id_tag):
+                        database.remove_item_from_registry(id_tag)
+                        return f"Item with id tag {id_tag} removed from the registry."
+                    else:
+                        return f"Item with id tag {id_tag} does not exist in the registry."
+                else:
+                    return "You do not have permission to use this command."
+            elif 'check' in command_parts:
+                if database.check_item(id_tag):
+                    return f"Item with id tag {id_tag} exists in the registry."
+                else:
+                    return f"Item with id tag {id_tag} does not exist in the registry."
             else:
-                msg = Id_config.define_id(gen_cat, spec_cat, quality, status, quantity)
-                if msg == 'id tag is correct':
-                    items = database.get_registry_data(id_tag)
-                return msg 
+                print('callback, no command_parts match')
+                database.get_registry_data(item_name=command_parts)
                 
-        elif 'all' in command_parts and user_title == 'owner':
-            items = database.get_registry_data('all')
-            if items:
-                return f"Items: {items}"
+        elif 'add' == command_parts[1] and user_title == 'owner':
+            if len(command_parts) == 2:
+                return "the add command should be as follows: !registry add <#0x-0x-0x-0x> <item name> <item descreiption> <item price>"
             else:
-                return "No items in the registry."
-        elif 'add' in command_parts and user_title == 'owner':
-            if database.check_item(id_tag):
-                return f"Item with id tag {id_tag} already exists in the registry."
-            else:
-                database.add_item_to_registry(id_tag)
-                return f"Item with id tag {id_tag} added to the registry."
-        elif 'remove' in command_parts and user_title == 'owner':
-            if database.check_item(id_tag):
-                database.remove_item_from_registry(id_tag)
-                return f"Item with id tag {id_tag} removed from the registry."
-            else:
-                return f"Item with id tag {id_tag} does not exist in the registry."
-        elif 'check' in command_parts:
-            if database.check_item(id_tag):
-                return f"Item with id tag {id_tag} exists in the registry."
-            else:
-                return f"Item with id tag {id_tag} does not exist in the registry."
-        elif 'all' in command_parts and user_title == 'owner':
-            items = database.get_registry_data('all')
-            if items:
-                return f"Items: {items}"
-            else:
-                return "No items in the registry."
-        else:
-            return "You do not have permission to perform this action."
-            
+                print(colored(f"context: {command_parts}", "yellow"))
+                segments = self.recombine_items(command_parts, user_jid)
+                print(segments)
+                if len(segments) != 5:
+                    return "Invalid number of segments. Please provide item name, description, and price."
+                else:
+                    id_tag = command_parts[2]
+                    database.add_item_temp(segments[4], id_tag, segments[1], segments[2], segments[3])
+                    return f"Item with id tag {id_tag} added to the registry."
+        
     def items_in_auction(self, user_jid, command_parts):
         print(f'items_in_auction command: {command_parts}')
         user_title = database.get_user_data(user_jid)['title']
@@ -196,7 +216,31 @@ class EchoBot(KikClientCallback):
                 return True
         elif tag == 'return_username':
             return database.get_user_data(user_jid)['username']
+        
+    def recombine_items(self, items_list, user_jid):
+        items_list = items_list[2:]  # Remove the first two items '!registry' and 'add'
+        item_id = items_list[0]  # Third item is the item id
+        item_name = ""
+        item_description = ""
+        item_price = ""
+        transaction_id = ""
+        des = False
 
+        for i in range(1, len(items_list)):
+            if items_list[i].startswith('<') and '>' in items_list[i] and not item_name:  # Start of item name
+                item_name += items_list[i]  # Remove the '<' character
+                
+            elif not des:
+                item_description += f'{items_list[i]} '  # Add a space to separate the words
+                if items_list[i].endswith('>'):
+                    des = True
+                    continue  # End of item name, description, or price
+            elif not item_price and items_list[i].startswith('<') and '>' in items_list[i]: 
+                 # Item name is not set yet
+                item_price += items_list[i]  # Remove the '>' character
+            
+        transaction_id = database.generate_transaction('craft', user_jid, item_name,)
+        return [item_id,item_name,item_description,item_price,transaction_id]  # Exit the loop since we have found the item price
 
         
     # This method is called when the bot receives a direct message (chat message)
@@ -212,6 +256,9 @@ class EchoBot(KikClientCallback):
         print(separator)
 
         user_jid = chat_message.from_jid
+        command_parts = chat_message.body.strip().split()
+        command = command_parts[0].lower() if command_parts else ""
+
 
         database.add_user_if_not_exists(chat_message.from_jid, table='set_user_data')
         self.client.send_chat_message(chat_message.from_jid, f'You said "{chat_message.body}"!')
@@ -224,13 +271,21 @@ class EchoBot(KikClientCallback):
             self.client.add_friend(chat_message.from_jid)
             database.add_user_if_not_exists(user_jid, table='set_user_data')
             user_data = database.get_user_data(chat_message.from_jid, table='set_user_data')
+            print(colored(f"User data: {user_data}", "yellow"))
             unique_id = user_data['unique_id'] if user_data else None
             if unique_id:
                 self.client.send_chat_message(chat_message.from_jid, f'your unique_id links you to your inventory in the group chat of your choice.\n in order for this to work, copy your unique_id then go to an unlinked chat has the auction house and say !connect [unique_id]\n for example: !connect 98wgf98ey4g9e .')
-                self.client.send_chat_message(chat_message.from_jid, f'{unique_id}')
+                self.client.send_chat_message(chat_message.from_jid, f'!connect {unique_id}')
             else:
                 self.client.send_chat_message(chat_message.from_jid, "sorry, you do not have a unique_id. please contact the auction house owner for assistance.")
-    
+
+        if command == '!transaction':
+            msg = database.generate_transaction(user_jid, command_parts)
+            self.client.send_chat_message(chat_message.from_jid, msg)
+
+
+
+
     
 
     # This method is called when the bot receives a chat message in a group
@@ -259,12 +314,12 @@ class EchoBot(KikClientCallback):
  
 
         if command == "!registry":
+            print('registry command triggered.')
             try:
                 if self.link_to_user(user_jid, group_jid):
                     registry_message = self.item_registry(user_jid, command_parts)
                     self.client.send_chat_message(group_jid, registry_message)
             except Exception as e:
-                
                 print(f"Error: {e}. Positional arguments provided-- group id: {group_jid}, user_id: {user_jid}, command parts: {command_parts}")
 
         if command == "!in_auction":
@@ -312,7 +367,7 @@ class EchoBot(KikClientCallback):
                 msg = database.link_group_to_user(user_jid, unique_id)
                 self.client.send_chat_message(chat_message.group_jid, msg)
             else:
-                self.client.send_chat_message(chat_message.group_jid, "You must provide a unique_id to link your chat to your inventory. head")
+                self.client.send_chat_message(chat_message.group_jid, "You must provide a unique_id to link your chat to your inventory. head to dms and say link to get your unique_id.")
         
     def on_sign_up_ended(self, response: RegisterResponse):
         print("Sign up ended!")
