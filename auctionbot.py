@@ -6,6 +6,9 @@ import time
 import logging
 from termcolor import colored
 import Id_config
+import io
+import sys
+import re
 
 from kik_unofficial.datatypes.xmpp.chatting import IncomingChatMessage, IncomingGroupChatMessage
 from kik_unofficial.datatypes.xmpp.sign_up import RegisterResponse
@@ -25,8 +28,15 @@ response = {}
 users = {}
 db_path = 'data_storage/auction.db'
 
-table_suffix = 'users'  
-database = auction_database(db_path, table_suffix)
+database = auction_database(db_path)
+
+# Configure the logging as usual
+logging.basicConfig(
+    level=logging.INFO,  # Set your desired log level
+    format="%(asctime)s [%(levelname)s]: %(message)s",
+)
+
+
 
 # This bot class handles all the callbacks from the kik client
 class EchoBot(KikClientCallback):
@@ -60,7 +70,7 @@ class EchoBot(KikClientCallback):
         self.timers = {}  # Dictionary to store timers for each user
         self.db_lock = threading.Lock()
         self.user_data = {}
-        self.db = auction_database(db_path, table_suffix)  # Ensure this is the correct class with the transfer_chips method
+        self.db = auction_database(db_path)  # Ensure this is the correct class with the transfer_chips method
         self.database = ChatbotDatabase()
         self.client.wait_for_messages()
 
@@ -73,7 +83,7 @@ class EchoBot(KikClientCallback):
         heartbeat_thread.daemon = True
         heartbeat_thread.start()    
 
-    def send_heartbeat(self, group_jid='1100261147932_g@groups.kik.com'): #ADD A group_jid OR user_jid
+    def send_heartbeat(self, group_jid='1100228878084_g@groups.kik.com'): #ADD A group_jid OR user_jid
         print('send_heartbeat')
         while True:
             try:
@@ -96,13 +106,15 @@ class EchoBot(KikClientCallback):
         print("Roster received!")
         groups = []
         users = []
+        print(colored(f"Roster components: roster: {type(response)}, .peers: {type(response.peers)}, more: {type(response.more)}, raw: {type(response.raw_element)}", "yellow"))
         for peer in response.peers:
             if "groups.kik.com" in peer.jid:
                 groups.append(peer.jid)
             else:
                 users.append(peer.jid)
+           
 
-        user_text = '\n'.join([f"User: {us}" for us in users])
+        user_text = '\n'.join([f"User: {us}, pfp: {us}" for us in users])
         group_text = '\n'.join([f"Group: {gr}" for gr in groups])
         partner_count = len(response.peers)
 
@@ -115,20 +127,55 @@ class EchoBot(KikClientCallback):
 
         print(roster_info)
     
+    def on_sign_up_ended(self, response: RegisterResponse):
+        print("Sign up ended!")
+        print("[+] Registered as " + response.kik_node)
+
+    def on_login_error(self, login_error: LoginError):
+        print("Login error: " + login_error.message)
+        if login_error.is_captcha():
+            login_error.solve_captcha_wizard(self.client)
+
+    def _send_xmpp_element(self, message: XMPPElement):
+        """
+        Serializes and sends the given XMPP element to kik servers
+        :param xmpp_element: The XMPP element to send
+        :return: The UUID of the element that was sent
+        """
+        while not self.client.connected:
+            print("[!] Waiting for connection.")
+            time.sleep(0.1)
+        if type(message.serialize()) is list:
+            print("[!] Sending multi packet data.")
+            packets = message.serialize()
+            for p in packets:
+                self.client.loop.call_soon_threadsafe(self.client.connection.send_raw_data, p)
+            return message.message_id
+        else:
+            self.client.loop.call_soon_threadsafe(self.client.connection.send_raw_data, message.serialize())
+            return message.message_id
+        
     def item_registry(self, user_jid, command_parts):
         print(f'item_registry command: {command_parts}')
-        user_title = database.get_user_data(jid=user_jid, table='set_user_data')['title']
+        try:
+            user_title = database.get_user_data(jid=user_jid, table='set_user_data')['title']
+        except Exception as e:
+            print(f"Error: {e}")
+            user_title = 'customer'
         if len(command_parts) < 2:
             with open("data_storage/id_sys1.txt","r") as f:
                 example = f.read()
             return example
+        
         elif len(command_parts) == 2:
             if command_parts[1].startswith('#'):
+                print('id tag')
                 id_tag = command_parts[1]
                 split_result = Id_config.split_id(id_tag)
                 gen_cat, spec_cat, quality, status = split_result if split_result else ( False, False, False, False)
                 if gen_cat == False:
                     return "Invalid id tag. Please use the correct format."
+                
                 else:
                     qualit = False
                     statu = False
@@ -145,6 +192,7 @@ class EchoBot(KikClientCallback):
                         status = True
                     items = database.get_registry_data(id_tag, qualit, statu)
                     return items                 
+                
             elif 'all' in command_parts:
                 if user_title == 'owner':
                     items = database.get_all_items(table_name='item_registry')
@@ -154,6 +202,7 @@ class EchoBot(KikClientCallback):
                         return "No items in the registry."
                 else:
                     return "You do not have permission to use this command."
+                
             elif 'remove' in command_parts:
                 if user_title == 'owner':
                     if database.check_item(id_tag):
@@ -163,6 +212,7 @@ class EchoBot(KikClientCallback):
                         return f"Item with id tag {id_tag} does not exist in the registry."
                 else:
                     return "You do not have permission to use this command."
+                
             elif 'check' in command_parts:
                 if database.check_item(id_tag):
                     return f"Item with id tag {id_tag} exists in the registry."
@@ -183,7 +233,12 @@ class EchoBot(KikClientCallback):
                     return "Invalid number of segments. Please provide item name, description, and price."
                 else:
                     id_tag = command_parts[2]
-                    database.add_item_temp(segments[4], id_tag, segments[1], segments[2], segments[3])
+                    transaction_id = segments[4].replace('<', '').replace('>', '')
+                    item_name = segments[1].replace('<', '').replace('>', '')
+                    item_description = segments[2].replace('<', '').replace('>', '')
+                    item_price = segments[3].replace('<', '').replace('>', '')
+                    database.add_item_temp(transaction_id, id_tag, item_name, item_description, item_price)
+                    self.client.send_chat_message('silverknightdelta_7e8@talk.kik.com', f'transaction with the id: {segments[4]} has been added to the temp registry.')
                     return f"Item with id tag {id_tag} added to the registry."
         
     def items_in_auction(self, user_jid, command_parts):
@@ -202,14 +257,19 @@ class EchoBot(KikClientCallback):
         pass
 
     def show_Inventory(self, user_jid):
-        pass
+        user = database.get_user_data(user_jid, table='set_user_data')['username']
+        items = database.get_user_data(user, table='item_ownership')
+        if items:
+            return f"Items in {user}'s inventory: {items}"
+        else:
+            return f"you do not have any items in your inventory."
 
     def show_dashboard(self, user_jid):
         pass
 
-    def link_to_user(self, user_jid, group_jid, tag='check_user_id'):
-        if tag == 'check_user_id':
-            if not database.check_user_id(user_jid):
+    def link_to_user(self, user_jid, group_jid, tag='check_id'):
+        if tag == 'check_id':
+            if not database.get_user_data(user_jid, table='set_user_data'):
                 self.client.send_chat_message(group_jid, 'You must link this chat to your inventory in order use this fuction. message me in dm and say \'link\'.')
                 return False
             else:
@@ -283,10 +343,54 @@ class EchoBot(KikClientCallback):
             msg = database.generate_transaction(user_jid, command_parts)
             self.client.send_chat_message(chat_message.from_jid, msg)
 
+        if command == 'pfp3':
+            try:
+                print(separator)
+                print('catching stdout')
+                # Create a string buffer
+                buffer = io.StringIO()
+                data = ''
 
+                # Save a reference to the original stdout
+                original_stdout = sys.stdout
 
+                # Redirect stdout to the buffer
+                sys.stdout = buffer
 
-    
+                self.client.request_info_of_users(chat_message.from_jid)
+                while True:
+                    if not 'pic' in data:
+                        data = buffer.getvalue() 
+                    else:    
+                        sys.stdout = original_stdout
+                        username_match = re.search(r"<username>(.*?)</username>", data)
+                        print(f"username_match: {username_match}")
+                        display_name_match = re.search(r"<display-name>(.*?)</display-name>", data)
+                        print(f"display_name_match: {display_name_match}")
+                        picture_link_match = re.search(r"<pic ts=\"\d+\">(.*?)</pic>", data)
+                        print(f"picture_link_match: {picture_link_match}")
+
+                        try:
+                            if username_match and display_name_match and picture_link_match:
+                                username = username_match.group(1)
+                                display_name = display_name_match.group(1)
+                                picture_link = picture_link_match.group(1)
+                                picture_link = picture_link + '/orig.jpg'
+                            
+                                # Use the extracted information
+                                print(f"Username: {username}")
+                                print(f"Display Name: {display_name}")
+                                print(f"Picture Link: {picture_link}")
+                            self.client.send_chat_message(chat_message.from_jid, f"Username: {username}\nDisplay Name: {display_name}\nPicture Link: {picture_link}")
+                        except Exception as e:
+                            self.client.send_chat_message(chat_message.from_jid, f"Failed to extract user information: {e}")
+                        break
+                # self.client.send_chat_message(chat_message.from_jid, f'raw3: {data}')
+                # Redirect stdout back to the terminal
+                print(separator)
+                    
+            except Exception as e:
+                self.client.send_chat_message(chat_message.from_jid, f'Failed to get user data.: {e}')
 
     # This method is called when the bot receives a chat message in a group
     def on_group_message_received(self, chat_message: chatting.IncomingGroupChatMessage):
@@ -316,9 +420,9 @@ class EchoBot(KikClientCallback):
         if command == "!registry":
             print('registry command triggered.')
             try:
-                if self.link_to_user(user_jid, group_jid):
-                    registry_message = self.item_registry(user_jid, command_parts)
-                    self.client.send_chat_message(group_jid, registry_message)
+            # if self.link_to_user(user_jid, group_jid):
+                registry_message = self.item_registry(user_jid, command_parts)
+                self.client.send_chat_message(group_jid, registry_message)
             except Exception as e:
                 print(f"Error: {e}. Positional arguments provided-- group id: {group_jid}, user_id: {user_jid}, command parts: {command_parts}")
 
@@ -332,9 +436,11 @@ class EchoBot(KikClientCallback):
                 self.client.send_chat_message(group_jid, bid_message)
 
         if command == "!inventory":
-            Inventory_message = self.show_Inventory(user_jid)
-            if Inventory_message and self.link_to_user(user_jid, group_jid):
+            if self.link_to_user(user_jid, group_jid):
+                Inventory_message = self.show_Inventory(user_jid)
                 self.client.send_chat_message(group_jid, Inventory_message)
+            else:
+                self.client.send_chat_message(group_jid, "You must link this chat to your inventory in order use this fuction. message me in dm and say 'link'.")
 
         if command == "!dashboard":
             try:
@@ -348,7 +454,7 @@ class EchoBot(KikClientCallback):
             except Exception as e:
                 print(f"Error: {e}")
 
-        if chat_message.body.lower() == "help" or chat_message.body.lower() == "commands" or chat_message.body.lower() == "cmds" or chat_message.body.lower() == "command" or chat_message.body.lower() == "cmd" or chat_message.body.lower() == "help me" or chat_message.body.lower() == "helpme" or chat_message.body.lower() == "help me!" or chat_message.body.lower() == "intro":
+        if chat_message.body.lower() == "help" or chat_message.body.lower() == "commands" or chat_message.body.lower() == "cmds" or chat_message.body.lower() == "command" or chat_message.body.lower() == "cmd" or chat_message.body.lower() == "help me" or chat_message.body.lower() == "helpme" or chat_message.body.lower() == "help me!":
             with open("data_storage/help.txt","r") as f:
                 self.client.send_chat_message(chat_message.group_jid, f.read())
             return
@@ -368,35 +474,6 @@ class EchoBot(KikClientCallback):
                 self.client.send_chat_message(chat_message.group_jid, msg)
             else:
                 self.client.send_chat_message(chat_message.group_jid, "You must provide a unique_id to link your chat to your inventory. head to dms and say link to get your unique_id.")
-        
-    def on_sign_up_ended(self, response: RegisterResponse):
-        print("Sign up ended!")
-        print("[+] Registered as " + response.kik_node)
-
-
-    def on_login_error(self, login_error: LoginError):
-        print("Login error: " + login_error.message)
-        if login_error.is_captcha():
-            login_error.solve_captcha_wizard(self.client)
-
-    def _send_xmpp_element(self, message: XMPPElement):
-        """
-        Serializes and sends the given XMPP element to kik servers
-        :param xmpp_element: The XMPP element to send
-        :return: The UUID of the element that was sent
-        """
-        while not self.client.connected:
-            print("[!] Waiting for connection.")
-            time.sleep(0.1)
-        if type(message.serialize()) is list:
-            print("[!] Sending multi packet data.")
-            packets = message.serialize()
-            for p in packets:
-                self.client.loop.call_soon_threadsafe(self.client.connection.send_raw_data, p)
-            return message.message_id
-        else:
-            self.client.loop.call_soon_threadsafe(self.client.connection.send_raw_data, message.serialize())
-            return message.message_id
         
 
 
@@ -423,12 +500,6 @@ def main():
 
     # let the bot start
     bot.client.wait_for_messages()
-
-# Configure the logging as usual
-logging.basicConfig(
-    level=logging.INFO,  # Set your desired log level
-    format="%(asctime)s [%(levelname)s]: %(message)s",
-)
 
 
 if __name__ == '__main__':
