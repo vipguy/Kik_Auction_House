@@ -9,9 +9,8 @@ symbols = '!@#$%^&*()_+'
 
 
 class auction_database:
-    def __init__(self, db_path, table_suffix):
+    def __init__(self, db_path):
         self.db_path = db_path
-        self.table_suffix = table_suffix
         self.lock = threading.Lock()
         self.setup_database()
         self.user_data = {}  # Dictionary to store user data
@@ -178,20 +177,46 @@ class auction_database:
 
     def get_user_data(self, jid, table='new_user_data'):
         table_name = table
-        username = jid[:-17]
         with self.lock:
-            try:
-                with self.create_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(f"SELECT * FROM {table_name} WHERE username = ? OR ajid_1 = ? OR ajid_2 = ? OR ajid_3 = ? OR ajid_4 = ?", (username, jid, jid, jid, jid))
-                    user_data = cursor.fetchone()
-                    if user_data:
-                        return dict(user_data)
-                    else:
-                        return None
-            except sqlite3.Error as e:
-                logging.error(f"Error getting user data for {jid}: {e}")
-                return None
+            if table_name == 'new_user_data':
+                try:
+                    with self.create_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE username = ?", (jid))
+                        user_data = cursor.fetchone()
+                        if user_data:
+                            return dict(user_data)
+                        else:
+                            return None
+                except sqlite3.Error as e:
+                    logging.error(f"Error getting user data for {jid}: {e}")
+                    return None
+            elif table_name == 'set_user_data':
+                try:
+                    with self.create_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE username = ? OR ajid_1 = ? OR ajid_2 = ? OR ajid_3 = ? OR ajid_4 = ?", (jid, jid, jid, jid, jid))
+                        user_data = cursor.fetchone()
+                        if user_data:
+                            return dict(user_data)
+                        else:
+                            return None
+                except sqlite3.Error as e:
+                    logging.error(f"Error getting user data for {jid}: {e}")
+                    return None
+            elif table_name == 'item_ownership':
+                try:
+                    with self.create_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE username = ?", (jid,))
+                        user_data = cursor.fetchall()
+                        if user_data:
+                            return [dict(row) for row in user_data]
+                        else:
+                            return None
+                except sqlite3.Error as e:
+                    logging.error(f"Error getting user data for {jid}: {e}")
+                    return None
 
     def get_registry_data(self, item_name, quality=False, status=False):
         table_name = 'item_registry'
@@ -229,22 +254,6 @@ class auction_database:
             except sqlite3.Error as e:
                 logging.error(f"Error getting item data for {item_name}: {e}")
                 return None
-    
-    def check_user_id(self, user_id):
-        table_name = "set_user_data"
-        with self.lock:
-            try:
-                with self.create_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(f"SELECT * FROM {table_name} WHERE ajid_1 = ? OR ajid_2 = ? OR ajid_3 = ? OR ajid_4 = ?", (user_id, user_id, user_id, user_id))
-                    user_data = cursor.fetchone()
-                    if user_data:
-                        return user_data
-                    else:
-                        return False
-            except sqlite3.Error as e:
-                logging.error(f"Error checking user id: {e}")
-                return False
             
     def update_item_id(self,old_id, new_item_id = None):
         table_name = "item_registry"
@@ -287,14 +296,16 @@ class auction_database:
             except sqlite3.Error as e:
                 logging.error(f"Error adding item to temp_registry: {e}")
 
-    def generate_transaction(self, transaction_type, initiator, item_1, amount_1 = 1, recipient = 'not-set', item_2 = 'not-set', amount_2 = 'not-set'):
+    def generate_transaction(self, transaction_type, initiator, item_1, amount_1 = 1, recipient = 'not-set', item_2 = 'not-set', amount_2 = 0):
         table_name = "currency_transactions"
         transaction_id = self.generate_unique_id()
+        timestamp = sqlite3.datetime.datetime.now()
+        print(f'transaction_id: {transaction_id}, transaction_type: {transaction_type}, timestamp: {timestamp}, initiator: {initiator}, item_1: {item_1}, amount_1: {amount_1}, recipient: {recipient}, item_2: {item_2}, amount_2: {amount_2}')
         with self.lock:
             try:
                 with self.create_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute(f"INSERT INTO {table_name} (transaction_id, transaction_type, initiator, item_1, amount_1, recipient, item_2, amount_2) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (transaction_id, transaction_type, initiator, item_1, amount_1, recipient, item_2, amount_2))
+                    cursor.execute(f"INSERT INTO {table_name} (transaction_id, transaction_type, timestamp , initiator, item_1, amount_1, recipient, item_2, amount_2) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (transaction_id, transaction_type, timestamp, initiator, item_1, amount_1, recipient, item_2, amount_2))
                     conn.commit()
                     logging.info("Transaction added to currency_transactions successfully.")
             except sqlite3.Error as e:
@@ -388,3 +399,4 @@ if __name__ == "__main__":
 # auction_db.update_item_id("new_item_id")
     # auction_db.add_user_if_not_exists("abc123sdjnsdkjndscjn",table='set_user_data')
 
+    
