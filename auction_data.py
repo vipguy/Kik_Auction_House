@@ -54,8 +54,7 @@ class auction_database:
                             transaction_id TEXT PRIMARY KEY,
                             item_id TEXT,
                             item_name TEXT,
-                            item_description TEXT,
-                            item_price integer
+                            item_description TEXT
                         );
                     """)
                     
@@ -78,8 +77,7 @@ class auction_database:
                             ajid_4 TEXT DEFAULT 'not-set',
                             unique_id TEXT,
                             currency_balance INTEGER DEFAULT 100000,
-                            title TEXT DEFAULT 'Customer',
-                            nickname TEXT DEFAULT 'not-set'
+                            title TEXT DEFAULT 'Customer'
                         );
                     """)
                     print("Created set_user_data table")
@@ -97,29 +95,56 @@ class auction_database:
                             amount_2 INTEGER
                         );
                     """)
-                    print("Created currency_transactions table")
-                    cursor.execute(f"""
-                        CREATE TABLE item_ownership (
-                            item_key INTEGER,
-                            username INTEGER,
-                            quantity INTEGER,
-                            PRIMARY KEY (item_key, username),
-                            FOREIGN KEY (item_key) REFERENCES item_registry (item_key),
-                            FOREIGN KEY (username) REFERENCES set_user_data (username)
-                        );
-                    """)
-                                   
+                    try:
+                        print("Created currency_transactions table")
+                        cursor.execute(f"""
+                            CREATE TABLE item_ownership (
+                                item_key TEXT,
+                                item_id TEXT,
+                                username TEXT,
+                                quantity INTEGER,
+                                perk_1 TEXT DEFAULT 'not-set',
+                                perk_1_value INTEGER DEFAULT 0,
+                                perk_2 TEXT DEFAULT 'not-set',
+                                perk_2_value INTEGER DEFAULT 0,
+                                equiped TEXT DEFAULT FALSE,
+                                item_price integer,
+                                PRIMARY KEY (item_key, username),
+                                FOREIGN KEY (item_key) REFERENCES item_registry (item_key),
+                                FOREIGN KEY (username) REFERENCES set_user_data (username)
+                            );
+                        """)
+                    except sqlite3.Error as e:
+                        logging.error(f"Error setting up database: {e}") 
+                                     
+                        cursor.execute(f"""
+                            CREATE TABLE dashboard_prefrences (
+                                username TEXT PRIMARY KEY,
+                                pfpx INTEGER,
+                                pfpy INTEGER,
+                                pfp_size INTEGER,
+                                box_red INTEGER,
+                                box_green INTEGER,
+                                box_blue INTEGER,
+                                box_alpha INTEGER,
+                                bio TEXT,
+                                display_name TEXT,
+                                font TEXT,
+                                FOREIGN KEY (username) REFERENCES set_user_data (username)
+                            );
+                        """)
+                                    
                     conn.commit()
             except sqlite3.Error as e:
                 logging.error(f"Error setting up database: {e}")
 
-    def link_group_to_user(self, jid, unique_id, ):
+    def link_group_to_user(self, jid, unique_id):
         table_name = "set_user_data"
         with self.lock:
             try:
                 with self.create_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute(f"SELECT * FROM {table_name} WHERE unique_id = ?", (unique_id,))
+                    cursor.execute(f"SELECT * FROM {table_name} WHERE unique_id = ?", (unique_id))
                     user_data = cursor.fetchone()
                     if user_data:
                         ajid_slots = ['ajid_1', 'ajid_2', 'ajid_3', 'ajid_4']
@@ -185,7 +210,7 @@ class auction_database:
                         cursor.execute(f"SELECT * FROM {table_name} WHERE username = ?", (jid))
                         user_data = cursor.fetchone()
                         if user_data:
-                            return dict(user_data)
+                            return user_data
                         else:
                             return None
                 except sqlite3.Error as e:
@@ -198,7 +223,7 @@ class auction_database:
                         cursor.execute(f"SELECT * FROM {table_name} WHERE username = ? OR ajid_1 = ? OR ajid_2 = ? OR ajid_3 = ? OR ajid_4 = ?", (jid, jid, jid, jid, jid))
                         user_data = cursor.fetchone()
                         if user_data:
-                            return dict(user_data)
+                            return user_data
                         else:
                             return None
                 except sqlite3.Error as e:
@@ -208,12 +233,23 @@ class auction_database:
                 try:
                     with self.create_connection() as conn:
                         cursor = conn.cursor()
-                        cursor.execute(f"SELECT * FROM {table_name} WHERE username = ?", (jid,))
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE username = ?", (jid))
                         user_data = cursor.fetchall()
                         if user_data:
-                            return [dict(row) for row in user_data]
+                            return user_data
                         else:
                             return None
+                except sqlite3.Error as e:
+                    logging.error(f"Error getting user data for {jid}: {e}")
+                    return None
+            elif table_name == 'dashboard_prefrences':
+                try:
+                    print(f'getting dashboard prefrences {jid}')
+                    with self.create_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE username = ?", (jid))
+                        user_data = cursor.fetchone()
+                        return user_data
                 except sqlite3.Error as e:
                     logging.error(f"Error getting user data for {jid}: {e}")
                     return None
@@ -245,7 +281,7 @@ class auction_database:
                     print(f'item: {item}')
                     with self.create_connection() as conn:
                         cursor = conn.cursor()
-                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_name LIKE ?", ('%' + item + '%',))
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_name LIKE ?", ('%' + item + '%'))
                         item_data = cursor.fetchall()
                         if item_data:
                             return [dict(row) for row in item_data]
@@ -267,16 +303,15 @@ class auction_database:
             except sqlite3.Error as e:
                 logging.error(f"Error updating item IDs: old_id: {old_id}, new_id: {new_item_id}, {e}")
 
-
-    def check_item(self, item_name, table_name = "item_registry"):
+    def check_item(self, item_name, item_id, table_name = "item_registry"):
         with self.lock:
             try:
                 with self.create_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute(f"SELECT * FROM {table_name} WHERE item_name = ?", (item_name,))
+                    cursor.execute(f"SELECT * FROM {table_name} WHERE item_name = ? AND item_id = ?", (item_name, item_id))
                     item_data = cursor.fetchone()
                     if item_data:
-                        return True
+                        return item_data
                     else:
                         return False
             except sqlite3.Error as e:
@@ -285,10 +320,10 @@ class auction_database:
             
     def add_item_temp(self, transaction_id, item_id, item_name, item_description, item_price):
         table_name = "temp_registry"
-         
         with self.lock:
             try:
                 with self.create_connection() as conn:
+            
                     cursor = conn.cursor()
                     cursor.execute(f"INSERT INTO {table_name} (transaction_id, item_id, item_name, item_description, item_price) VALUES (?, ?, ?, ?, ?)", (transaction_id, item_id, item_name, item_description, item_price))
                     conn.commit()
@@ -305,12 +340,49 @@ class auction_database:
             try:
                 with self.create_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute(f"INSERT INTO {table_name} (transaction_id, transaction_type, timestamp , initiator, item_1, amount_1, recipient, item_2, amount_2) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (transaction_id, transaction_type, timestamp, initiator, item_1, amount_1, recipient, item_2, amount_2))
+                    if transaction_type == 'self':
+                        cursor.execute(f"INSERT INTO {table_name} (transaction_id, transaction_type, timestamp , initiator, item_1, amount_1, recipient, item_2, amount_2) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (transaction_id, transaction_type, timestamp, initiator, item_1, amount_1, initiator, item_1, amount_1))
+                    else:
+                        cursor.execute(f"INSERT INTO {table_name} (transaction_id, transaction_type, timestamp , initiator, item_1, amount_1, recipient, item_2, amount_2) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (transaction_id, transaction_type, timestamp, initiator, item_1, amount_1, recipient, item_2, amount_2))
                     conn.commit()
                     logging.info("Transaction added to currency_transactions successfully.")
             except sqlite3.Error as e:
                 logging.error(f"Error adding transaction to currency_transactions: {e}")
         return transaction_id
+
+    def authorize_item_creation(self, transaction_id):
+        print(f'authorize_item_creation: {transaction_id}')
+        transaction_id = transaction_id
+        try:
+            with self.create_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(f"SELECT * FROM temp_registry WHERE transaction_id = ?", (transaction_id,))
+                item_data = cursor.fetchone()
+                cursor.execute(f"SELECT * FROM Currency_transactions WHERE transaction_id = ?", (transaction_id,))
+                Ttransaction_data = cursor.fetchone()
+                quantity = Ttransaction_data[5]
+                username = Ttransaction_data[6]
+                item = self.check_item(item_data[1],item_data[2])
+                if item:
+                    item_key = item[0]
+                    item_id = item[1]
+                    item_price = item[4]
+                    inventory = self.get_user_data(item_key, table='item_ownership')
+                    if inventory:
+                        quantity = inventory[3] + quantity
+                        cursor.execute(f"UPDATE item_ownership SET quantity = quantity + ? WHERE item_key = ? AND username = ?", (quantity, item_key, username))
+                    else:
+                        cursor.execute(f"INSERT INTO item_ownership (item_key, item_id, username, quantity, item_price) VALUES (?, ?, ?, ?, ?)", (item_key, item_id, username, quantity, item_price))
+                else: 
+                    item_key = self.generate_unique_id()
+                    cursor.execute(f"INSERT INTO item_registry (item_key, item_id, item_name, item_description, item_price) VALUES (?, ?, ?, ?, ?)", (item_key, item_data[1], item_data[2], item_data[3], item_data[4]))                
+                    cursor.execute(f"INSERT INTO item_ownership (item_key, item_id, username, quantity, item_price) VALUES (?, ?, ?, ?, ?)", (item_key, item_data[1], username, quantity, item_data[4]))
+                    cursor.execute("DELETE FROM temp_registry WHERE transaction_id = ?", (transaction_id,))
+                conn.commit()
+            return (f'transaction with the id {transaction_id} authorized successfully.')
+        except sqlite3.Error as e:
+            logging.error(f"Error authorizing item creation: {e}")
+            return None
 
     def check_item_by_id(self, table_name, item_name, quality=False, status=False):
         try:
@@ -319,20 +391,20 @@ class auction_database:
                 cursor = conn.cursor()
                 gen_cat, spec_cat, qual, stat = Id_config.split_id(item_name)
                 start = f'{gen_cat}-{spec_cat}-'
-                if not qual == '07':
+                if not qual == '01':
                     start += f'{qual}-'
-                    if not stat == '04':
+                    if not stat == '01':
                         start += f'{stat}-'
                         print(f'start: {start}')
-                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_id = ?", (start,))
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_id = ?", (start))
                         item_data = cursor.fetchall()
                     else:    
                         print(f'start: {start}')
-                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_id like ?", ('%' + start + '%',))
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_id like ?", ('%' + start + '%'))
                         item_data = cursor.fetchall()
                 else:    
                     print(f'start: {start}')
-                    cursor.execute(f"SELECT * FROM {table_name} WHERE item_id like ?", ('%' + start + '%',))
+                    cursor.execute(f"SELECT * FROM {table_name} WHERE item_id like ?", ('%' + start + '%'))
                     item_data = cursor.fetchall()
                     if not status:
                         item_list = 'item list:\n'
@@ -370,11 +442,40 @@ class auction_database:
             else:
                 continue
         return list_of_items
-        
+
+    def update_user_data(self, jid, table, column, value):
+        with self.lock:
+            try:
+                with self.create_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(f"UPDATE {table} SET {column} = ? WHERE username = ?", (value, jid))
+                    conn.commit()
+                    logging.info(f"User data updated successfully for {jid}.")
+            except sqlite3.Error as e:
+                logging.error(f"Error updating user data for {jid}: {e}")
+
+    def generate_dashboard_data(self, jid, nickname): 
+        try:
+            with self.create_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO dashboard_prefrences (username, pfpx, pfpy, pfp_size, box_red, box_green, box_blue, box_alpha, bio, display_name, font) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (jid, 650, 50, 300, 0, 125, 255, 170, 'not-set', nickname, 'not-set'))
+                conn.commit()
+        except Exception as e:
+            logging.error(f"Error inserting dashboard preferences: {e}")
+
+    # def enchant_item(item_key):
+    #     try:
+    #         with self.create_connection() as conn:
+    #             cursor = conn.cursor()
+    #             cursor.execute(f"SELECT * FROM item_ownership WHERE item_key = ?", (item_key))
+    #             item_data = cursor.fetchone()   
+                
+
+
+
 if __name__ == "__main__":
     db_path = "/C:/Users/holyk/Desktop/code/kikbot-blackjackbot/data_storage/auction.db"  # Provide the correct database path
-    table_suffix = "suffix"  # Provide the desired table suffix
-    auction_db = auction_database(db_path, table_suffix)
+    auction_db = auction_database(db_path)
     
     # with auction_db.create_connection() as conn:
     #     cursor = conn.cursor()
