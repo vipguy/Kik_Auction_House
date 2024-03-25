@@ -1,0 +1,16 @@
+!registry: 
+this connabd performs registry minipulation. 
+
+all: !registry all
+
+add: !registry add
+
+#00-00-00-00: 
+!registry #00-00-00-00
+!registry #01-00-00-00
+!registry #01-01-00-00
+!registry #01-01-01-00
+!registry #01-01-01-01
+!registry #07-05-02-03
+
+item name: !registry <item_name>

@@ -1,0 +1,14 @@
+this command can be a bit tricky. lets break it down.
+
+!dashboard: this is the main command and will come before anything else.
+    >pfp: this subcommand edits the profile pictures size and position. it requires three arguements (x, y, size) default: (650, 50, 300)
+    >box_color: this subcommand edits the text boxes color and opacity, it requires 4 arguements (red,green,blue,opacity)
+    >nickname: this changes your display name.
+    >bio: this updates your bio. keep it short, there is limited space.
+examples:
+    !dashboard pfp 650 50 300
+    !dashboard box_color 0 125 255 170
+    !dashboard nickname i am the best
+    !dashboard bio imagine all the possibilities. with all the great minds out there im sure great bio\'s will show up.
+patches coming soon for the skids who cant follow simple examples lol.
+    

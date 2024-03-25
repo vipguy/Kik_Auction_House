@@ -15,8 +15,8 @@ class auction_database:
         self.setup_database()
         self.user_data = {}  # Dictionary to store user data
     
-    def generate_unique_id(self):
-        unique_id = ''.join(random.choice(letters + symbols) for i in range(15))
+    def generate_unique_id(self, num=4):
+        unique_id = ''.join(random.choice(letters + symbols) for i in range(num))
         return unique_id
  
     def create_connection(self):
@@ -118,18 +118,19 @@ class auction_database:
                         logging.error(f"Error setting up database: {e}") 
                                      
                         cursor.execute(f"""
-                            CREATE TABLE dashboard_prefrences (
-                                username TEXT PRIMARY KEY,
-                                pfpx INTEGER,
-                                pfpy INTEGER,
-                                pfp_size INTEGER,
-                                box_red INTEGER,
-                                box_green INTEGER,
-                                box_blue INTEGER,
-                                box_alpha INTEGER,
-                                bio TEXT,
-                                display_name TEXT,
-                                font TEXT,
+                            CREATE TABLE new_item_ownership (
+                                new_item_key TEXT,
+                                item_id TEXT,
+                                username TEXT,
+                                quantity INTEGER,
+                                perk_1 TEXT DEFAULT 'not-set',
+                                perk_1_value INTEGER DEFAULT 0,
+                                perk_2 TEXT DEFAULT 'not-set',
+                                perk_2_value INTEGER DEFAULT 0,
+                                equiped TEXT DEFAULT FALSE,
+                                item_price integer,
+                                PRIMARY KEY (new_item_key, username),
+                                FOREIGN KEY (new_item_key) REFERENCES item_registry (item_key),
                                 FOREIGN KEY (username) REFERENCES set_user_data (username)
                             );
                         """)
@@ -144,7 +145,7 @@ class auction_database:
             try:
                 with self.create_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute(f"SELECT * FROM {table_name} WHERE unique_id = ?", (unique_id))
+                    cursor.execute(f"SELECT * FROM {table_name} WHERE unique_id = ?", (unique_id,))
                     user_data = cursor.fetchone()
                     if user_data:
                         ajid_slots = ['ajid_1', 'ajid_2', 'ajid_3', 'ajid_4']
@@ -200,14 +201,14 @@ class auction_database:
                     for column in table_columns:
                         logging.info(f"Column name: {column[1]}, Type: {column[2]}, Nullable: {column[3]}, Default value: {column[4]}")
 
-    def get_user_data(self, jid, table='new_user_data'):
+    def get_user_data(self, jid = None, item_key = None, item_name = None, table='new_user_data', displayname = None, equipped = None):
         table_name = table
         with self.lock:
             if table_name == 'new_user_data':
                 try:
                     with self.create_connection() as conn:
                         cursor = conn.cursor()
-                        cursor.execute(f"SELECT * FROM {table_name} WHERE username = ?", (jid))
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE username = ?", (jid,))
                         user_data = cursor.fetchone()
                         if user_data:
                             return user_data
@@ -230,65 +231,96 @@ class auction_database:
                     logging.error(f"Error getting user data for {jid}: {e}")
                     return None
             elif table_name == 'item_ownership':
-                try:
-                    with self.create_connection() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute(f"SELECT * FROM {table_name} WHERE username = ?", (jid))
-                        user_data = cursor.fetchall()
-                        if user_data:
-                            return user_data
-                        else:
-                            return None
-                except sqlite3.Error as e:
-                    logging.error(f"Error getting user data for {jid}: {e}")
-                    return None
+                if item_key:
+                    try:
+                        with self.create_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute(f"SELECT * FROM {table_name} WHERE item_key = ? AND username = ?", (item_key, jid))
+                            user_data = cursor.fetchall()
+                            if user_data:
+                                return user_data
+                            else:
+                                return None
+                    except sqlite3.Error as e:
+                        logging.error(f"Error getting user data for {jid}: {e}")
+                        return None
+                elif equipped:
+                    print('getting equipped items')
+                    try:
+                        with self.create_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute(f"SELECT * FROM {table_name} WHERE username = ? AND equiped = ?", (jid, 'TRUE'))
+                            user_data = cursor.fetchall()
+                            if user_data:
+                                for item in user_data:
+                                    print(f'equipped items: {item[4]}, {item[5]}, {item[6]}, {item[7]}')
+                                return user_data
+                            else:
+                                return None
+                    except sqlite3.Error as e:
+                        logging.error(f"Error getting user data for {jid}: {e}")
+                        return None
+                elif item_name:
+                    try:
+                        with self.create_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute(f"SELECT * FROM {table_name} WHERE item_name = ?", (item_name,))
+                            user_data = cursor.fetchall()
+                            if user_data:
+                                return user_data
+                            else:
+                                return None
+                    except sqlite3.Error as e:
+                        logging.error(f"Error getting user data for {jid}: {e}")
+                        return None
+                else:
+                    print('getting all items')
+                    try:
+                        with self.create_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute(f"SELECT * FROM {table_name} WHERE username = ?", (jid,))
+                            user_data = cursor.fetchall()
+                            if user_data:
+                                return user_data
+                            else:
+                                return None
+                    except sqlite3.Error as e:
+                        logging.error(f"Error getting user data for {jid}: {e}")
+                        return None
             elif table_name == 'dashboard_prefrences':
-                try:
-                    print(f'getting dashboard prefrences {jid}')
-                    with self.create_connection() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute(f"SELECT * FROM {table_name} WHERE username = ?", (jid))
-                        user_data = cursor.fetchone()
-                        return user_data
-                except sqlite3.Error as e:
-                    logging.error(f"Error getting user data for {jid}: {e}")
-                    return None
-
-    def get_registry_data(self, item_name, quality=False, status=False):
+                if displayname:
+                    try:
+                        with self.create_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute(f"SELECT * FROM {table_name} WHERE display_name LIKE ?", ('%' + displayname + '%',))
+                            user_data = cursor.fetchone()
+                            if user_data:
+                                return user_data
+                            else:
+                                return None
+                    except sqlite3.Error as e:
+                        logging.error(f"Error getting user data for {jid}: {e}")
+                        return None
+                else:
+                    try:
+                        print(f'getting dashboard prefrences {jid}')
+                        with self.create_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute(f"SELECT * FROM {table_name} WHERE username = ?", (jid,))
+                            user_data = cursor.fetchone()
+                            return user_data
+                    except sqlite3.Error as e:
+                        logging.error(f"Error getting user data for {jid}: {e}")
+                        return None
+    
+    def get_registry_data(self, item_id, quality=False, status=False):
         table_name = 'item_registry'
-        print (f'item_name: {item_name[1], {item_name}}')
         with self.lock:
             try:
-
-                if item_name == 'in_auction':
-                    print('command in_auction')
-                    with self.create_connection() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute(f"SELECT item_id FROM {table_name}")
-                        item_names = cursor.fetchall()
-                        item_ids = cursor.fetchall()
-                        result = [item_id[1] for item_id in item_ids if item_id[1].split('-')[2] == '02']
-                        return result
-                elif Id_config.is_valid_id(item_name):
-                    return self.check_item_by_id(table_name, item_name, quality, status)
-                else:
-                    print('item name command')
-                    item_name.pop(0)
-                    item = ''
-                    for i in range(len(item_names)):
-                        item += str(item_names[i-1]) + ' '
-                    item = item.strip()
-                    print(f'item: {item}')
-                    with self.create_connection() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_name LIKE ?", ('%' + item + '%'))
-                        item_data = cursor.fetchall()
-                        if item_data:
-                            return [dict(row) for row in item_data]
-                        else:
-                            return None     
+                if Id_config.is_valid_id(item_id):
+                    return self.check_item_by_id(table_name, item_id, quality, status)
             except sqlite3.Error as e:
-                logging.error(f"Error getting item data for {item_name}: {e}")
+                logging.error(f"Error getting item data for {item_id}: {e}")
                 return None
             
     def update_item_id(self,old_id, new_item_id = None):
@@ -303,20 +335,49 @@ class auction_database:
             except sqlite3.Error as e:
                 logging.error(f"Error updating item IDs: old_id: {old_id}, new_id: {new_item_id}, {e}")
 
-    def check_item(self, item_name, item_id, table_name = "item_registry"):
-        with self.lock:
-            try:
-                with self.create_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(f"SELECT * FROM {table_name} WHERE item_name = ? AND item_id = ?", (item_name, item_id))
-                    item_data = cursor.fetchone()
-                    if item_data:
-                        return item_data
-                    else:
-                        return False
-            except sqlite3.Error as e:
-                logging.error(f"Error checking item: {e}")
-                return False
+    def check_item(self, item_key = None, item_name = None, item_id = None, table_name = "item_registry"):
+        if item_key:
+            with self.lock:
+                try:
+                    with self.create_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_key = ?", (item_key,))
+                        item_data = cursor.fetchone()
+                        if item_data:
+                            return item_data
+                        else:
+                            return False
+                except sqlite3.Error as e:
+                    logging.error(f"Error checking item: {e}")
+                    return False
+        elif item_name:
+            with self.lock:
+                try:
+                    with self.create_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_name = ?", (item_name,))
+                        item_data = cursor.fetchone()
+                        if item_data:
+                            return item_data
+                        else:
+                            return False
+                except sqlite3.Error as e:
+                    logging.error(f"Error checking item: {e}")
+                    return False
+        elif item_id:
+            with self.lock:
+                try:
+                    with self.create_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_name = ? AND item_id = ?", (item_name, item_id))
+                        item_data = cursor.fetchone()
+                        if item_data:
+                            return item_data
+                        else:
+                            return False
+                except sqlite3.Error as e:
+                    logging.error(f"Error checking item: {e}")
+                    return False
             
     def add_item_temp(self, transaction_id, item_id, item_name, item_description, item_price):
         table_name = "temp_registry"
@@ -384,85 +445,173 @@ class auction_database:
             logging.error(f"Error authorizing item creation: {e}")
             return None
 
-    def check_item_by_id(self, table_name, item_name, quality=False, status=False):
+    def check_item_by_id(self, table_name, item_id, quality=False, status=False, username=None):
         try:
             print(f'id command, quality: {quality}, status: {status}')
             with self.create_connection() as conn:
                 cursor = conn.cursor()
-                gen_cat, spec_cat, qual, stat = Id_config.split_id(item_name)
+                gen_cat, spec_cat, qual, stat = Id_config.split_id(item_id)
                 start = f'{gen_cat}-{spec_cat}-'
                 if not qual == '01':
                     start += f'{qual}-'
                     if not stat == '01':
-                        start += f'{stat}-'
-                        print(f'start: {start}')
-                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_id = ?", (start))
+                        start += f'{stat}'
+                        print(f'start 1: {start}')
+                        if username:
+                            cursor.execute(f"SELECT * FROM {table_name} WHERE item_id = ? AND username = ?", (start, username))
+                        else:
+                            cursor.execute(f"SELECT * FROM {table_name} WHERE item_id = ?", (start,))
                         item_data = cursor.fetchall()
-                    else:    
-                        print(f'start: {start}')
-                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_id like ?", ('%' + start + '%'))
-                        item_data = cursor.fetchall()
-                else:    
-                    print(f'start: {start}')
-                    cursor.execute(f"SELECT * FROM {table_name} WHERE item_id like ?", ('%' + start + '%'))
-                    item_data = cursor.fetchall()
-                    if not status:
-                        item_list = 'item list:\n'
+                        item_list = {}
                         for row in item_data:
-                            print(f'Id command Row itteration: {row[1]}')
-                            if Id_config.split_id(row[1])[3] == stat:
-                                item_list += f'{str(row[2])}, price: {str(row[4])}\n'
+                            key = row[0]
+                            print(f'row 0: {key}')
+                            item_list[key] = {}
+                            for idx, value in enumerate(row):
+                                column_name = cursor.description[idx][0]  # Get the column name
+                                print(f'column_name: {column_name}, value: {value}')
+                                item_list[key][column_name] = value
+                        return item_list
+                    else:    
+                        print(f'start 2: {start}')
+                        if username:
+                            cursor.execute(f"SELECT * FROM {table_name} WHERE item_id like ? AND username = ?", ('%' + start + '%', username))
+                        else:
+                            cursor.execute(f"SELECT * FROM {table_name} WHERE item_id like ?", ('%' + start + '%',))
+                        item_data = cursor.fetchall()
+                        try:
+                            print(f'item_data: {item_data[0]}')
+                            item_list = {}
+                            for row in item_data:
+                                key = row[0]
+                                print(f'row 0: {key}')
+                                item_list[key] = {}
+                                for idx, value in enumerate(row):
+                                    column_name = cursor.description[idx][0]  # Get the column name
+                                    print(f'column_name: {column_name}, value: {value}')
+                                    item_list[key][column_name] = value
+                            return item_list
+                        except Exception as e:
+                            print(f"Error occurred while processing item at start 2: {e}")
+                            return None
+                else:    
+                    print(f'start 3: {start}')
+                    if username:
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_id like ? AND username = ?", ('%' + start + '%', username))
+                    else:
+                        cursor.execute(f"SELECT * FROM {table_name} WHERE item_id like ?", ('%' + start + '%',))
+                    item_data = cursor.fetchall()
+                    print(f'item_data: {item_data[0][0]}')
+                    if stat != '01':
+                        try:
+                            item_list = {}
+                            for row in item_data:
+                                if Id_config.split_id(row[1])[3] == stat:
+                                    key = row[0]
+                                    item_list[key] = {}
+                                    for idx, value in enumerate(row):
+                                        column_name = cursor.description[idx][0]  # Get the column name
+                                        print(f'column_name: {column_name}, value: {value}')
+                                        item_list[key][column_name] = value
+                        except Exception as e:
+                            print(f"Error occurred while processing item data1: {e}")
+                            return None
+                    else:
+                        try:
+                            item_list = {}
+                            for row in item_data:
+                                key = row[0]
+                                print(f'row: {row}')
+                                print(f'row[0]: {key}')
+                                item_list[key] = {}
+                                for idx, value in enumerate(row):
+                                    column_name = cursor.description[idx][0]  # Get the column name
+                                    print(f'column_name: {column_name}, value: {value}')
+                                    item_list[key][column_name] = value
+                        except Exception as e:
+                            print(f"Error occurred while processing item data2: {e}")
+                            return None
             return item_list
+            
         except Exception as e:
             print(f"Registry id command Error: {e}")
-            return 'sorry there was an error during Id_config.is_valid_id(item_name)'
+            return 'sorry there was an error during Id_config.is_valid_id(item_id)'
         
     def get_all_items(self, table_name, raw=False):
-
         with self.create_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(f"SELECT item_name FROM {table_name}")
-            item_names = cursor.fetchall()
-            print (f'item_names: {type(item_names)}')
+            cursor.execute(f"SELECT * FROM {table_name}")  # Modify this line to select all columns from the table
+            item_data = cursor.fetchall()
             items = ''
             if raw:
-                return item_names
-            for name in item_names:
-                print(f'name: {name[0]}, type: {type(name[0])}')
-                items += f' {str(name[0])}\n'  # Modify this line to select the second column of each row
+                return item_data
+            for row in item_data:
+                items += f'{str(row[2])}\n'  # Modify this line to select the second column of each row
             return items
         
     def get_auction_registry(self):
-        table_name = 'item_registry'
+        table_name = 'item_ownershiP'
         item_data = self.get_all_items(table_name, raw=True)
         list_of_items = 'list of items in auction:\n'
-        for items in item_data:
-            if items[1].split('-')[3] == '02':
-                list_of_items += f'item: {items[2]}, price: {items[4]}\n'
-            else:
-                continue
-        return list_of_items
+        if item_data:
+            for items in item_data:
+                if items[1].split('-')[3] == '02':
+                    list_of_items += f'item: {items[2]}, price: {items[4]}\n'
+                else:
+                    continue
+        else:
+            return 
 
-    def update_user_data(self, jid, table, column, value):
+    def update_user_data(self, jid, table, column, value , item_key = None):
+        print(f'update_user_data: {jid}, {table}, {column}, {value}, {item_key}')
         with self.lock:
-            try:
-                with self.create_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(f"UPDATE {table} SET {column} = ? WHERE username = ?", (value, jid))
-                    conn.commit()
-                    logging.info(f"User data updated successfully for {jid}.")
-            except sqlite3.Error as e:
-                logging.error(f"Error updating user data for {jid}: {e}")
+            if item_key:
+                try:
+                    with self.create_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(f"UPDATE {table} SET {column} = ? WHERE item_key = ? AND username = ?", (value, item_key, jid))
+                        conn.commit()
+                        logging.info(f"User data updated successfully for {jid}.")
+                except sqlite3.Error as e:
+                    logging.error(f"Error updating user data for {jid}: {e}")
+            else:
+                try:
+                    with self.create_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(f"UPDATE {table} SET {column} = ? WHERE username = ?", (value, jid))
+                        conn.commit()
+                        logging.info(f"User data updated successfully for {jid}.")
+                except sqlite3.Error as e:
+                    logging.error(f"Error updating user data for {jid}: {e}")
 
-    def generate_dashboard_data(self, jid, nickname): 
+    def generate_dashboard_data(self, jid, nickname):
+        
         try:
             with self.create_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("INSERT INTO dashboard_prefrences (username, pfpx, pfpy, pfp_size, box_red, box_green, box_blue, box_alpha, bio, display_name, font) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (jid, 650, 50, 300, 0, 125, 255, 170, 'not-set', nickname, 'not-set'))
+                cursor.execute("INSERT INTO dashboard_prefrences (username, pfpx, pfpy, pfp_size, box_red, box_green, box_blue, box_alpha, bio, display_name, background_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (jid, 650, 50, 300, 0, 125, 255, 170, 'not-set', nickname, 'not-set'))
                 conn.commit()
         except Exception as e:
             logging.error(f"Error inserting dashboard preferences: {e}")
+    
+    def add_item_to_inventory(self, item_key, item_id, username, quantity, item_price):
+        try:
+            with self.create_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(f"INSERT INTO item_ownership (item_key, item_id, username, quantity, item_price) VALUES (?, ?, ?, ?, ?)", (item_key, item_id, username, quantity, item_price))
+                conn.commit()
+        except Exception as e:
+            logging.error(f"Error inserting item ownership: {e}")
 
+    def delete_item_from_inventory(self, item_key, user_jid):
+        try:
+            with self.create_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(f"DELETE FROM item_ownership WHERE item_key = ? AND username = ?", (item_key, user_jid))
+                conn.commit()
+        except Exception as e:
+            logging.error(f"Error deleting item from inventory: {e}")
+            
     # def enchant_item(item_key):
     #     try:
     #         with self.create_connection() as conn:
