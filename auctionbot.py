@@ -115,7 +115,7 @@ class EchoBot(KikClientCallback):
         heartbeat_thread.daemon = True
         heartbeat_thread.start()    
 
-    def send_heartbeat(self, group_jid='silverknightdelta_7e8@talk.kik.com'): #ADD A group_jid OR user_jid
+    def send_heartbeat(self, group_jid='your_main_jid_here'): #ADD A group_jid OR user_jid
         print('send_heartbeat')
         while True:
             try:
@@ -460,7 +460,7 @@ class EchoBot(KikClientCallback):
                 item_description = segments[2].replace('<', '').replace('>', '')
                 item_price = segments[3].replace('<', '').replace('>', '')
                 database.add_item_temp(transaction_id, id_tag, item_name, item_description, item_price)
-                self.client.send_chat_message('silverknightdelta_7e8@talk.kik.com', f'transaction with the id: {segments[4]} has been added to the temp registry.')
+                self.client.send_chat_message('your_main_jid_here', f'transaction with the id: {segments[4]} has been added to the temp registry.')
                 return f"Item with id tag {id_tag} added to the registry."
         
     def items_in_auction(self, user_jid, command_parts):
@@ -929,34 +929,34 @@ class EchoBot(KikClientCallback):
         user_owned = database.get_user_data(user_jid, item_key, table='item_ownership')
         user_data = database.get_user_data(user_jid, table='set_user_data')
         total_price = int((float(item_price * amount) * 0.7))
-        auction_owned = database.get_user_data('silverknightdelta_7e8@talk.kik.com', item_key, 'item_ownership')
-        auction_data = database.get_user_data('silverknightdelta_7e8@talk.kik.com', table = 'set_user_data')
+        auction_owned = database.get_user_data('your_main_jid_here', item_key, 'item_ownership')
+        auction_data = database.get_user_data('your_main_jid_here', table = 'set_user_data')
         for item in auction_owned[0]:
             print(f'auction_owned: {item}')
         for item in auction_data:
             print(f'auction_data: {item}')  
         if user_owned:
             if int(user_owned[0][3]) - amount == 0:
-                database.generate_transaction('sell', user_jid, item_name, amount, 'silverknightdelta_7e8@talk.kik.com', 'coins', total_price)
+                database.generate_transaction('sell', user_jid, item_name, amount, 'your_main_jid_here', 'coins', total_price)
                 database.delete_item_from_inventory(item_key, user_jid)
                 database.update_user_data(user_jid, 'set_user_data', 'currency_balance', user_data[6] + total_price)
                 if auction_owned:
-                    database.update_user_data('silverknightdelta_7e8@talk.kik.com', 'item_ownership', 'quantity', auction_owned[0][3] + amount, item_key)
-                    database.update_user_data('silverknightdelta_7e8@talk.kik.com', 'set_user_data', 'currency_balance', auction_data[6] - total_price)
+                    database.update_user_data('your_main_jid_here', 'item_ownership', 'quantity', auction_owned[0][3] + amount, item_key)
+                    database.update_user_data('your_main_jid_here', 'set_user_data', 'currency_balance', auction_data[6] - total_price)
                 else:
-                    database.add_item_to_inventory(item_key, item_id, 'silverknightdelta_7e8@talk.kik.com', amount, item_price)
-                    database.update_user_data('silverknightdelta_7e8@talk.kik.com', 'set_user_data', 'currency_balance', auction_data[6] - total_price)
+                    database.add_item_to_inventory(item_key, item_id, 'your_main_jid_here', amount, item_price)
+                    database.update_user_data('your_main_jid_here', 'set_user_data', 'currency_balance', auction_data[6] - total_price)
                 return f'e1 you have sold {amount} {item_name} for {total_price} coins.'
             elif int(user_owned[0][3]) - amount > 0:
-                database.generate_transaction('sell', user_jid, item_name, amount, 'silverknightdelta_7e8@talk.kik.com', 'coins', total_price)
+                database.generate_transaction('sell', user_jid, item_name, amount, 'your_main_jid_here', 'coins', total_price)
                 database.update_user_data(user_jid, 'item_ownership', 'quantity', int(user_owned[0][3]) - amount, item_key)
                 database.update_user_data(user_jid, 'set_user_data', 'currency_balance', user_data[6] + total_price)
                 if auction_owned:
-                    database.update_user_data('silverknightdelta_7e8@talk.kik.com', 'item_ownership', 'quantity', auction_owned[0][3] + amount, item_key)
-                    database.update_user_data('silverknightdelta_7e8@talk.kik.com', 'set_user_data', 'currency_balance', auction_data[6] - total_price)
+                    database.update_user_data('your_main_jid_here', 'item_ownership', 'quantity', auction_owned[0][3] + amount, item_key)
+                    database.update_user_data('your_main_jid_here', 'set_user_data', 'currency_balance', auction_data[6] - total_price)
                 else:
-                    database.add_item_to_inventory(item_key, item_id, 'silverknightdelta_7e8@talk.kik.com', amount, item_price)
-                    database.update_user_data('silverknightdelta_7e8@talk.kik.com', 'set_user_data', 'currency_balance', auction_data[6] - total_price)
+                    database.add_item_to_inventory(item_key, item_id, 'your_main_jid_here', amount, item_price)
+                    database.update_user_data('your_main_jid_here', 'set_user_data', 'currency_balance', auction_data[6] - total_price)
                 return f'e2 you have sold {amount} {item_name} for {total_price} coins.'
             elif int(user_owned[0][3]) - amount < 0:
                 return f'e3 You do not have enough of this item to sell {amount}.'
