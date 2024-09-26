@@ -1,0 +1,21 @@
+!dashboard: 
+the dashboard command allows you to see your current title, money, stats, and bio. use it to flex your awesomeness or to optimize and plan for your next adventure into the mine. It is important to remember that you can only edit your dashboard in dms with the bot.
+
+pfp: this command requires (x, y, size) default: (650, 50, 300)
+
+box_color: this command requires (red,green,blue,opacity)
+
+nickname: this changes your display name.
+
+bio: this updates your bio. keep it short, there is limited space.
+
+background: this sets your custom background picture.
+
+examples:
+    !dashboard pfp 650 50 300
+    !dashboard box_color 0 125 255 170
+    !dashboard nickname i am the best
+    !dashboard bio imagine the possibilities.
+    !dashboard background
+patches coming soon for the skids who cant follow simple examples lol.
+    

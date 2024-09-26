@@ -1,0 +1,11 @@
+Start the Game: You can start the mining mini-game by typing a command, such as !mine.
+
+Mining: Once the game starts, you'll be in a virtual mine. Your goal is to extract as many minerals as possible. You can do this by typing a command like (left, right, center). Each time you dig, you have a chance to find a mineral. The type and quantity of the mineral you find can be random.
+
+Energy: Mining requires energy. You start with a certain amount of energy, and each dig consumes some. When you run out of energy, you can't dig anymore. You can replenish your energy by exiting or by using items or commands that restore energy.
+
+Inventory: The minerals you find are stored in your inventory. You can check your inventory by typing a command like !inventory. 
+
+Selling Minerals: You can sell the minerals you've found for game currency. The command is !sell. The amount of game currency you get depends on the type and quantity of the mineral.
+
+Upgrades: As you earn more game currency, you can buy upgrades to improve your mining. Upgrades can increase your digging efficiency, energy capacity, and more. check the auction registry for items that may progress your adventure.

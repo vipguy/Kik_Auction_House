@@ -1,18 +1,19 @@
-Welcome to the Fantasy Auction House Bot!
-
-Features:
-1. Auction Listings: List items for auction and bid on items listed by others.
-2. Inventory Management: View and manage your inventory of items.
-3. Currency Management: Earn and spend currency to participate in auctions.
-4. User Titles: Earn special titles based on your activity and achievements.
-5. Item Categories: Explore a variety of fantasy items including weapons, armor, potions, and more.
-6. Auction Events: Participate in special events and auctions with unique items.
-
 Commands:
-- !registry: Item registry, list all items currently in curculation.
-- !bid [item_id] [bid_amount]: Place a bid on an item.
-- !inventory: View your inventory of items.
-- !dashboard: Check your current currency balance, and current title.
-- !help: Display this help message.
+1. !bid
+2. !dashboard
+3. !in_auction
+4. !inventory
+5. !mine
+6. !registry
+7. !extra
 
-Start exploring the Fantasy Auction House Bot now!
+for help on using these command type the !help (command you need help with). here are a few example to get you started
+
+ex:
+!help 1 <OR> !help bid
+!help 2 <OR> !help dashboard
+!help 3 <OR> !help in_auction
+!help 4 <OR> !help inventory
+!help 5 <OR> !help mine
+!help 6 <OR> !help registry
+!help 7 <OR> !help extra

@@ -1,0 +1,2 @@
+!bid:
+This command is used to place a bid in an ongoing auction. To use it, type `!bid` followed by the amount you wish to bid. For example, `!bid item_key 100` would place a bid of 100. Please note that you can only bid if there is an active auction and your bid is higher than the current highest bid. If your bid is successful, you will receive a confirmation message.

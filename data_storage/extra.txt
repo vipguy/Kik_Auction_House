@@ -1,0 +1,24 @@
+extra coomand:
+please note that not all commands are made for the users. as the auction hose is developed certain functions will need to be tested. those commands will be posted here for the dev to use and test. 
+don`t be suprised when you use the command and you dont see anything happen, mostly everything here is either a command thats still unstable or something for the backend. without further ado, here they are.
+!friend: 
+this command lets the bot add you as a friend ultimately allowing you to add it to different groups.
+
+link and !connect: 
+this command combo lets you connect your inventory to up to 4 different groups. before you use most of the commands, you  must first have your inventory linked.
+here is how to link your inventory:
+
+step1: click ~> @mc_twin
+step2: say ~> `link`
+step3: then come back here and say ~> `!connect blahblah`
+
+!trasnaction:
+this command generates raw trasnactions the arguements are as follows:
+<transaction_type> <initiator> <item_1> <amount_1> <recipient> <item_2> <amount_2>
+generating a trasnaction alone does not mean that you will gain or lose the itens listed in the trasnaction. it simply stands as proof that the action happend. much like a recipt after you buy an item.
+trasnactions exist so that way the dev can see what happend, when it happend, and who was involved. here is an example of a trasnaction that is generated whenever you recieve and item from  the mining minigame.
+generate_transaction('mining game', system, iron, 10, user, nothing, nothing)
+
+
+
+

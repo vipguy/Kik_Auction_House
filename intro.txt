@@ -1,0 +1,9 @@
+Welcome to the Fantasy Auction House Bot!
+
+Features:
+1. Auction Listings: List items for auction and bid on items listed by others.
+2. Inventory Management: View and manage your inventory of items.
+3. Currency Management: Earn and spend currency to participate in auctions.
+4. User Titles: Earn special titles based on your activity and achievements.
+5. Item Categories: Explore a variety of fantasy items including weapons, armor, potions, and more.
+6. Auction Events: Participate in special events and auctions with unique items

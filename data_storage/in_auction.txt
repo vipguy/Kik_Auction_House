@@ -1,0 +1,1 @@
+Please rest assured that this command currently requires no arguments. All you need to do is say "!in_auction," and a list of all the items currently in the auction will be produced for you.

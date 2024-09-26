@@ -1,6 +1,8 @@
 import asyncio
 import re
 import time
+from termcolor import colored
+
 import xml.etree.ElementTree as element_tree
 from threading import Thread, Event
 from typing import Union, List, Tuple
@@ -870,21 +872,26 @@ class KikConnection(Protocol):
         """
 
         self.logger.debug("Received raw data: %s", data)
+        print(colored(data, 'red'))
 
         # Handle empty packets
         if data == b" ":
             self.loop.call_soon_threadsafe(self.api._on_new_data_received, data)
+            print("empty packet")
             return
 
         is_multipacket, is_start, tag = self.analyze_and_parse_packet(data)
 
         if not is_multipacket:
+            print("not multipacket")
             # split elements if there is more than one
             # send each elements through
             elements = self.split_elements(data)
+            print(colored('moving to api', 'green'))
             for el in elements:
                 self.loop.call_soon_threadsafe(self.api._on_new_data_received, el)
         else:
+            print("multipacket")
             # Add incoming data to buffer for further processing
             self.data_array.append((time.time(), tag, is_start, data))
 

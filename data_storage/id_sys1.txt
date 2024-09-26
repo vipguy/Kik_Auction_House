@@ -1,32 +1,9 @@
-the current identifacaton system works as follows. #AA-BB-CC-DD-EE
+the current identifacaton system works as follows. #AA-BB-CC-DD
     '#': the hash signifies the begining of every id.
     '-': the dash signifies the end of one id segment and the start of another.
     'AA': id segment 'a' signifies the general classifacation.
     'BB': id segment 'b' signifies the specific classifacation within the general classifacation.
     'CC': id segment 'c' signifies the quality of the item.
     'DD': id segment 'd' signifies the status of the item.
-    'EE': id segment 'e' signifies the quantity of the item.
-
-leaving id segmants out from the message will return catagorgies.
-example: 
-    #00: catagorgies
-        weapons
-        armor
-        equipment
-        etc..
-    #01: weapons catagorgies
-        swords
-        axes
-        spears
-    #01-01 swords
-        quality - 1
-            sword - 1
-            sword - 2
-            sword - 3
-        quality - 2
-            sword - 1
-            sword - 2
-    #01-01-01
-        sword - 1
-        sword - 2
-        sword - 3
+    
+    bbrj

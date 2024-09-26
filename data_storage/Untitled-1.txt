@@ -1,0 +1,22 @@
+-- database: c:\Users\holyk\Desktop\code\kikbot-blackjackbot\data_storage\auction.db
+
+-- Use the ▷ button in the top right corner to run the entire file.
+
+
+-- Step 1: Add new columns
+ALTER TABLE item_registry ADD COLUMN new_item_key VARCHAR(5);
+ALTER TABLE item_ownership ADD COLUMN new_item_key VARCHAR(5);
+
+-- Step 2: Populate new columns
+UPDATE item_registry SET new_item_key = LEFT(item_key, 5); -- This keeps the first 5 characters of the key
+UPDATE item_ownership SET new_item_key = LEFT(item_key, 5); -- This keeps the first 5 characters of the key
+
+-- Step 3: Drop old foreign key constraint
+ALTER TABLE item_ownership DROP CONSTRAINT item_key_fk;
+
+-- Step 4: Add new foreign key constraint
+ALTER TABLE item_ownership ADD CONSTRAINT new_item_key_fk FOREIGN KEY (new_item_key) REFERENCES item_registry (new_item_key);
+
+-- Step 5: Drop old columns
+ALTER TABLE item_registry DROP COLUMN item_key;
+ALTER TABLE item_ownership DROP COLUMN item_key;

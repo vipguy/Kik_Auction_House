@@ -1,0 +1,21 @@
+Commands:
+examples: !registry add, !registry all, !regisrty #00-00-00-00, !inventory, !inventory all, !inventory <item name>
+
+- !registry: Item registry Commands performs registry minipulation. (in progress)
+    > all: lists all items. (finished)
+    > add: adds item to the registry (finished)
+    > in_auction: shows item in auction. (in progress)
+    > remove: removes item from registry (in progress)
+    > #00-00-00-00: search by tag. (finished)
+    > 'item name': searches by name. (in progress)
+
+- !bid [item_id] [bid_amount]: Place a bid on an item. (untouched)
+
+- !inventory: View your inventory of items. (untouched)
+
+- !dashboard: Check your current currency balance, and current title. (untouched)
+
+- !connect: links your account to a group chat.  (finished)
+
+- !help: Display this help message. (in progress)
+
